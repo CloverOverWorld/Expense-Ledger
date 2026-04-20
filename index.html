@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -106,15 +105,13 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
 <body>
 
 <!-- LOCK / SETUP SCREEN -->
-
 <div id="lock">
   <div class="lock-icon">🔐</div>
   <div class="lock-title">Expense Ledger</div>
   <div class="lock-sub" id="lock-sub">Secure Access</div>
 
   <!-- SETUP -->
-
-  <div id="step-setup" style="display:none;width:100%;align-items:center;flex-direction:column">
+  <div id="step-setup" style="display:flex;width:100%;align-items:center;flex-direction:column">
     <div class="setup-card">
       <div class="setup-card-t">⚙ First-Time Setup</div>
       <div class="setup-card-b">Choose who this instance is for, then create your PIN. You only do this once.</div>
@@ -134,7 +131,6 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
   </div>
 
   <!-- PIN ENTRY -->
-
   <div id="step-pin" style="display:none;width:100%;align-items:center;flex-direction:column">
     <div class="lock-box">
       <span class="lbl">Enter PIN</span>
@@ -147,7 +143,6 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
 </div>
 
 <!-- APP SCREEN -->
-
 <div id="app">
   <div class="sbar">
     <span><span class="sdot"></span><span id="s-owner"></span> · <span id="s-timer">4h 00m</span> remaining</span>
@@ -174,75 +169,70 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
 
   <div class="content" id="elist"></div>
 
-<button class="fab fab-h" id="fab" onclick="openModal()">+ Add Expense</button>
-
+  <button class="fab fab-h" id="fab" onclick="openModal()">+ Add Expense</button>
 </div>
 
 <!-- EXPENSE MODAL -->
-
 <div class="moverlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="mhandle"></div>
     <div class="mtitle h" id="mtitle">New House Expense</div>
 
-```
-<div class="fld">
-  <label>Amount ($)</label>
-  <input type="number" inputmode="decimal" class="amt-in" id="f-amt" placeholder="0.00" step="0.01">
-</div>
-<div class="fld">
-  <label>Date</label>
-  <input type="date" id="f-date">
-</div>
-<div class="fld">
-  <label>Vendor / Description</label>
-  <input type="text" id="f-vend" placeholder="e.g. Home Depot, Carpenter...">
-</div>
-<div class="fld">
-  <label>Category</label>
-  <div class="cgrp" id="cat-chips"></div>
-</div>
-
-<!-- HOUSE ONLY -->
-<div id="h-fields">
-  <div class="fld">
-    <label>Paid By</label>
-    <div class="cgrp" id="paidby-chips"></div>
-  </div>
-  <div class="fld">
-    <label>Reimbursement Status</label>
-    <div class="tog-row">
-      <span style="font-size:13px">Marked as Reimbursed</span>
-      <button class="tog" id="reimb-tog" onclick="toggleReimb()"></button>
+    <div class="fld">
+      <label>Amount ($)</label>
+      <input type="number" inputmode="decimal" class="amt-in" id="f-amt" placeholder="0.00" step="0.01">
     </div>
-  </div>
-</div>
-
-<!-- BIZ ONLY -->
-<div id="b-fields" style="display:none">
-  <div class="fld">
-    <label>Payment Method</label>
-    <div class="cgrp" id="pm-chips"></div>
-  </div>
-  <div class="fld">
-    <label>Notes (optional)</label>
-    <input type="text" id="f-notes" placeholder="Client, project, context...">
-  </div>
-  <div class="fld">
-    <label>Add Custom Category</label>
-    <div class="cc-row">
-      <input type="text" id="f-ccat" placeholder="e.g. Equipment">
-      <button onclick="addCustomCat()">Add</button>
+    <div class="fld">
+      <label>Date</label>
+      <input type="date" id="f-date">
     </div>
-  </div>
-</div>
+    <div class="fld">
+      <label>Vendor / Description</label>
+      <input type="text" id="f-vend" placeholder="e.g. Home Depot, Carpenter...">
+    </div>
+    <div class="fld">
+      <label>Category</label>
+      <div class="cgrp" id="cat-chips"></div>
+    </div>
 
-<div class="macts">
-  <button class="mbtn-c" onclick="closeModal()">Cancel</button>
-  <button class="mbtn-s h" id="mbtn-s" onclick="saveExpense()">Save Expense</button>
-</div>
-```
+    <!-- HOUSE ONLY -->
+    <div id="h-fields">
+      <div class="fld">
+        <label>Paid By</label>
+        <div class="cgrp" id="paidby-chips"></div>
+      </div>
+      <div class="fld">
+        <label>Reimbursement Status</label>
+        <div class="tog-row">
+          <span style="font-size:13px">Marked as Reimbursed</span>
+          <button class="tog" id="reimb-tog" onclick="toggleReimb()"></button>
+        </div>
+      </div>
+    </div>
 
+    <!-- BIZ ONLY -->
+    <div id="b-fields" style="display:none">
+      <div class="fld">
+        <label>Payment Method</label>
+        <div class="cgrp" id="pm-chips"></div>
+      </div>
+      <div class="fld">
+        <label>Notes (optional)</label>
+        <input type="text" id="f-notes" placeholder="Client, project, context...">
+      </div>
+      <div class="fld">
+        <label>Add Custom Category</label>
+        <div class="cc-row">
+          <input type="text" id="f-ccat" placeholder="e.g. Equipment">
+          <button onclick="addCustomCat()">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="macts">
+      <button class="mbtn-c" onclick="closeModal()">Cancel</button>
+      <button class="mbtn-s h" id="mbtn-s" onclick="saveExpense()">Save Expense</button>
+    </div>
   </div>
 </div>
 
@@ -353,35 +343,38 @@ function tickSession(end) {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-(function init() {
-  var lastOwner = localStorage.getItem('lastOwner') || 'Sri';
-  owner = lastOwner;
-
-  var sessionEnd = parseInt(localStorage.getItem(SK('sessionEnd')) || '0');
-  if (sessionEnd > Date.now()) {
-    expenses = loadExpenses();
-    customCats = loadCats();
-    document.getElementById('lock').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    document.getElementById('s-owner').textContent = owner;
-    renderAll();
-    tickSession(sessionEnd);
-    sessionInterval = setInterval(function() { tickSession(sessionEnd); }, 30000);
-    return;
-  }
-
-  document.getElementById('lock').style.display = 'flex';
-  var hasPin = localStorage.getItem(SK('pinHash'));
-  if (!hasPin) {
-    // First time — show setup
+function init() {
+  try {
+    var lastOwner = localStorage.getItem('lastOwner') || 'Sri';
+    owner = lastOwner;
+    var sessionEnd = parseInt(localStorage.getItem(SK('sessionEnd')) || '0');
+    if (sessionEnd > Date.now()) {
+      expenses = loadExpenses();
+      customCats = loadCats();
+      document.getElementById('lock').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      document.getElementById('s-owner').textContent = owner;
+      renderAll();
+      tickSession(sessionEnd);
+      sessionInterval = setInterval(function() { tickSession(sessionEnd); }, 30000);
+      return;
+    }
+    document.getElementById('lock').style.display = 'flex';
+    var hasPin = localStorage.getItem(SK('pinHash'));
+    if (!hasPin) {
+      document.getElementById('step-setup').style.display = 'flex';
+      document.getElementById('step-pin').style.display = 'none';
+      document.getElementById('lock-sub').textContent = 'First-Time Setup';
+      selectOwner(lastOwner);
+    } else {
+      showPinStep();
+    }
+  } catch(err) {
     document.getElementById('step-setup').style.display = 'flex';
     document.getElementById('step-pin').style.display = 'none';
-    document.getElementById('lock-sub').textContent = 'First-Time Setup';
-    selectOwner(lastOwner);
-  } else {
-    showPinStep();
   }
-})();
+}
+document.addEventListener('DOMContentLoaded', init);
 
 // ── TAB ───────────────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -583,52 +576,50 @@ function doPrint() {
   var reimb = activeTab==='house'?mine.filter(function(e){return e.reimbursed;}).reduce(function(s,e){return s+parseFloat(e.amount);},0):null;
   var win = window.open('','_blank');
   win.document.write('<!DOCTYPE html><html><head><title>'+title+'</title><style>body{font-family:monospace;font-size:12px;color:#111;max-width:800px;margin:40px auto;padding:20px}h1{font-size:22px;margin-bottom:4px}.meta{color:#666;margin-bottom:24px}table{width:100%;border-collapse:collapse;margin-bottom:24px}th{border-bottom:2px solid #111;padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.1em}td{border-bottom:1px solid #ddd;padding:6px 8px}.tr{margin-top:12px;border-top:2px solid #111;padding-top:12px}.tr-row{display:flex;justify-content:space-between;margin-bottom:4px}.grand{font-weight:bold;font-size:14px}</style></head><body>');
-
-win.document.write(’<h1>’+title+’</h1><div class="meta">’+date+’ · ‘+mine.length+’ expenses · ‘+owner+’</div>’);
-win.document.write(’<table><thead><tr><th>Category</th><th>#</th><th style="text-align:right">Amount</th></tr></thead><tbody>’+catRows+’</tbody></table>’);
-win.document.write(’<table><thead><tr><th>Date</th><th>Vendor</th><th>Category</th><th style="text-align:right">Amount</th><th>Details</th></tr></thead><tbody>’+detRows+’</tbody></table>’);
-win.document.write(’<div class="tr"><div class="tr-row grand"><span>TOTAL</span><span>’+fmt(total)+’</span></div>’);
-if (reimb !== null) { win.document.write(’<div class="tr-row" style="color:#2a7a2a"><span>Reimbursed</span><span>’+fmt(reimb)+’</span></div><div class="tr-row" style="color:#b22"><span>Balance Owed</span><span>’+fmt(total-reimb)+’</span></div>’); }
-win.document.write(’</div></body></html>’);
-win.document.close(); win.print();
+  win.document.write('<h1>'+title+'</h1><div class="meta">'+date+' · '+mine.length+' expenses · '+owner+'</div>');
+  win.document.write('<table><thead><tr><th>Category</th><th>#</th><th style="text-align:right">Amount</th></tr></thead><tbody>'+catRows+'</tbody></table>');
+  win.document.write('<table><thead><tr><th>Date</th><th>Vendor</th><th>Category</th><th style="text-align:right">Amount</th><th>Details</th></tr></thead><tbody>'+detRows+'</tbody></table>');
+  win.document.write('<div class="tr"><div class="tr-row grand"><span>TOTAL</span><span>'+fmt(total)+'</span></div>');
+  if (reimb !== null) { win.document.write('<div class="tr-row" style="color:#2a7a2a"><span>Reimbursed</span><span>'+fmt(reimb)+'</span></div><div class="tr-row" style="color:#b22"><span>Balance Owed</span><span>'+fmt(total-reimb)+'</span></div>'); }
+  win.document.write('</div></body></html>');
+  win.document.close(); win.print();
 }
 
 // ── IMPORT ────────────────────────────────────────────────────────────────────
 function doImport(event) {
-var file = event.target.files[0]; if (!file) return;
-var reader = new FileReader();
-reader.onload = function(ev) {
-var lines = ev.target.result.split(’\n’).map(function(l){return l.trim();}).filter(function(l){return l;});
-if (!lines.length) { alert(‘Empty file.’); return; }
-var isH = lines[0].toLowerCase().includes(‘reimbursed’);
-var tab = isH ? ‘house’ : ‘biz’;
-var existing = {};
-expenses.filter(function(e){return e.tab===tab;}).forEach(function(e){existing[e.date+’|’+(e.vendor||’’).toLowerCase()+’|’+parseFloat(e.amount).toFixed(2)]=1;});
-var added=0, skipped=0;
-for (var i=1;i<lines.length;i++) {
-var row = parseRow(lines[i]);
-if (!row||row.length<4) continue;
-if (row[0].toLowerCase()===‘total’||row[0]===’’) continue;
-var date=row[0].trim(), vendor=(row[1]||’’).replace(/^”|”$/g,’’).trim(), cat=(row[2]||’’).trim(), amount=parseFloat(row[3]);
-if (!date||isNaN(amount)||amount<=0) continue;
-var key=date+’|’+vendor.toLowerCase()+’|’+amount.toFixed(2);
-if (existing[key]) { skipped++; continue; }
-expenses.unshift({id:Date.now().toString()+Math.random().toString(36).slice(2,5),tab:tab,amount:amount,date:date,vendor:vendor,cat:cat,reimbursed:isH?(row[5]||’’).toLowerCase()===‘yes’:false,paidBy:isH?(row[4]||’’).trim():’’,payment:!isH?(row[4]||’’).trim():’’,notes:!isH?(row[5]||’’).replace(/^”|”$/g,’’).trim():’’});
-existing[key]=1; added++;
-}
-saveExpenses(expenses); renderAll();
-alert(‘Import complete.\n✅ ‘+added+’ added\n⏭ ‘+skipped+’ duplicates skipped’);
-};
-reader.readAsText(file);
-event.target.value=’’;
+  var file = event.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var lines = ev.target.result.split('\n').map(function(l){return l.trim();}).filter(function(l){return l;});
+    if (!lines.length) { alert('Empty file.'); return; }
+    var isH = lines[0].toLowerCase().includes('reimbursed');
+    var tab = isH ? 'house' : 'biz';
+    var existing = {};
+    expenses.filter(function(e){return e.tab===tab;}).forEach(function(e){existing[e.date+'|'+(e.vendor||'').toLowerCase()+'|'+parseFloat(e.amount).toFixed(2)]=1;});
+    var added=0, skipped=0;
+    for (var i=1;i<lines.length;i++) {
+      var row = parseRow(lines[i]);
+      if (!row||row.length<4) continue;
+      if (row[0].toLowerCase()==='total'||row[0]==='') continue;
+      var date=row[0].trim(), vendor=(row[1]||'').replace(/^"|"$/g,'').trim(), cat=(row[2]||'').trim(), amount=parseFloat(row[3]);
+      if (!date||isNaN(amount)||amount<=0) continue;
+      var key=date+'|'+vendor.toLowerCase()+'|'+amount.toFixed(2);
+      if (existing[key]) { skipped++; continue; }
+      expenses.unshift({id:Date.now().toString()+Math.random().toString(36).slice(2,5),tab:tab,amount:amount,date:date,vendor:vendor,cat:cat,reimbursed:isH?(row[5]||'').toLowerCase()==='yes':false,paidBy:isH?(row[4]||'').trim():'',payment:!isH?(row[4]||'').trim():'',notes:!isH?(row[5]||'').replace(/^"|"$/g,'').trim():''});
+      existing[key]=1; added++;
+    }
+    saveExpenses(expenses); renderAll();
+    alert('Import complete.\n✅ '+added+' added\n⏭ '+skipped+' duplicates skipped');
+  };
+  reader.readAsText(file);
+  event.target.value='';
 }
 
 function parseRow(line) {
-var result=[],cur=’’,inQ=false;
-for (var i=0;i<line.length;i++){var ch=line[i];if(ch===’”’){inQ=!inQ;}else if(ch===’,’&&!inQ){result.push(cur);cur=’’;}else{cur+=ch;}}
-result.push(cur); return result;
+  var result=[],cur='',inQ=false;
+  for (var i=0;i<line.length;i++){var ch=line[i];if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){result.push(cur);cur='';}else{cur+=ch;}}
+  result.push(cur); return result;
 }
 </script>
-
 </body>
 </html>
