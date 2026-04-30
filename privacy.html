@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Ideatron Ledger</title>
+<style>
+  :root { --bg: #0f0f0f; --surface: #1a1a1a; --border: #2e2e2e; --text: #f0ece3; --muted: #6b6560; --gold: #c8a96e; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Georgia', serif; line-height: 1.8; max-width: 760px; margin: 0 auto; padding: 60px 32px; }
+  .logo { font-family: 'Georgia', serif; font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); margin-bottom: 48px; }
+  h1 { font-size: 32px; font-weight: 600; margin-bottom: 8px; }
+  .effective { font-size: 13px; color: var(--muted); margin-bottom: 48px; font-family: monospace; letter-spacing: 0.05em; }
+  h2 { font-size: 16px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin: 40px 0 16px; font-family: monospace; }
+  p { margin-bottom: 16px; font-size: 15px; color: #d4cfc6; }
+  ul { margin: 0 0 16px 20px; }
+  li { font-size: 15px; color: #d4cfc6; margin-bottom: 8px; }
+  a { color: var(--gold); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .divider { height: 1px; background: var(--border); margin: 40px 0; }
+  .contact-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-top: 40px; }
+  .contact-box p { margin-bottom: 6px; }
+  .footer { margin-top: 60px; font-size: 12px; color: var(--muted); font-family: monospace; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+
+<div class="logo">Ideatron LLC — Ideatron Ledger</div>
+
+<h1>Privacy Policy</h1>
+<div class="effective">Effective Date: April 29, 2026 — Last Updated: April 29, 2026</div>
+
+<p>This Privacy Policy describes how Ideatron LLC ("Ideatron," "we," "us," or "our") collects, uses, stores, and protects information in connection with Ideatron Ledger ("the App"), a collaborative expense tracking application accessible at ideatron-llc.com.</p>
+
+<p>By using Ideatron Ledger, you agree to the practices described in this Privacy Policy. If you do not agree, please discontinue use of the App.</p>
+
+<div class="divider"></div>
+
+<h2>1. Information We Collect</h2>
+<p>We collect only the minimum information necessary to operate the App:</p>
+<ul>
+  <li><strong>Email address</strong> — used for authentication and access control via Cloudflare Access. We do not use your email for marketing without your explicit consent.</li>
+  <li><strong>Display name</strong> — the name you choose when setting up your account. This is visible to collaborators on shared projects.</li>
+  <li><strong>Expense data</strong> — dates, amounts, vendor names, categories, payment methods, and notes you enter into the App.</li>
+  <li><strong>Project data</strong> — project names and collaborator associations you create within the App.</li>
+</ul>
+<p>We do not collect: social security numbers, bank account numbers, credit card numbers, government identification, precise geolocation, or any biometric data beyond what your device uses locally for passkey authentication (which never leaves your device).</p>
+
+<h2>2. How We Use Your Information</h2>
+<ul>
+  <li>To provide, operate, and maintain the App</li>
+  <li>To enable real-time collaboration between project members you invite</li>
+  <li>To authenticate your identity and enforce access controls</li>
+  <li>To respond to support requests</li>
+  <li>To improve the App based on aggregated, non-identifying usage patterns</li>
+</ul>
+<p>We do not sell your data. We do not share your data with advertisers. We do not use your expense data to train AI models or for any purpose beyond operating the App.</p>
+
+<h2>3. Data Storage and Security</h2>
+<p>Your data is stored in a Supabase-hosted PostgreSQL database with the following protections:</p>
+<ul>
+  <li><strong>Encryption at rest</strong> — all data is encrypted at the database level</li>
+  <li><strong>Encryption in transit</strong> — all data transfers use TLS/HTTPS</li>
+  <li><strong>Row Level Security (RLS)</strong> — database policies ensure you can only access data belonging to your projects. Even at the database level, data is scoped by authenticated user identity.</li>
+  <li><strong>Access control</strong> — the App is protected by Cloudflare Zero Trust, meaning only explicitly invited email addresses can access the application at all</li>
+  <li><strong>Passkey authentication</strong> — login is secured by device biometrics (Face ID, Touch ID, or fingerprint). No passwords are stored.</li>
+</ul>
+<p>While we implement industry-standard security measures, no system is 100% immune to breach. In the event of a security incident affecting your data, we will notify affected users within 72 hours of becoming aware.</p>
+
+<h2>4. Data Sharing</h2>
+<p>We share your data only in the following limited circumstances:</p>
+<ul>
+  <li><strong>Collaborators you invite</strong> — project members you explicitly invite can see expense data within shared projects</li>
+  <li><strong>Service providers</strong> — we use Supabase (database), Cloudflare (access control and DNS), and GitHub Pages (app hosting). Each operates under their own privacy policies and data processing agreements</li>
+  <li><strong>Legal requirements</strong> — we may disclose data if required by law, court order, or to protect the rights and safety of Ideatron LLC or its users</li>
+</ul>
+<p>We never sell, rent, or trade your personal information to any third party for commercial purposes.</p>
+
+<h2>5. Data Retention</h2>
+<p>We retain your data for as long as your account is active. You may request deletion of your data at any time by contacting us at the address below. Upon verified request, we will delete your personal information and expense data within 30 days, except where retention is required by law.</p>
+
+<h2>6. Your Rights</h2>
+<p>You have the right to:</p>
+<ul>
+  <li><strong>Access</strong> — request a copy of all data we hold about you</li>
+  <li><strong>Correction</strong> — request correction of inaccurate data</li>
+  <li><strong>Deletion</strong> — request deletion of your account and all associated data</li>
+  <li><strong>Export</strong> — export your expense data at any time via the built-in CSV export feature</li>
+  <li><strong>Opt-out</strong> — we do not sell data, so there is nothing to opt out of in that regard</li>
+</ul>
+<p>To exercise any of these rights, contact us at the address below. We will respond within 30 days.</p>
+
+<h2>7. Texas Data Privacy and Security Act (TDPSA)</h2>
+<p>Ideatron LLC is a Texas-based company and complies with the Texas Data Privacy and Security Act. Texas residents have the right to access, correct, delete, and obtain a copy of their personal data, and to opt out of the sale of personal data. We do not sell personal data. To submit a privacy request, contact us using the information below.</p>
+
+<h2>8. Children's Privacy</h2>
+<p>Ideatron Ledger is not directed at children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us and we will delete it promptly.</p>
+
+<h2>9. Changes to This Policy</h2>
+<p>We may update this Privacy Policy from time to time. When we do, we will update the "Last Updated" date at the top of this page. Continued use of the App after changes constitutes acceptance of the updated policy. For material changes, we will notify active users via email.</p>
+
+<h2>10. Third-Party Services</h2>
+<p>The App relies on the following third-party services, each with their own privacy policies:</p>
+<ul>
+  <li><strong>Supabase</strong> — <a href="https://supabase.com/privacy" target="_blank">supabase.com/privacy</a></li>
+  <li><strong>Cloudflare</strong> — <a href="https://www.cloudflare.com/privacypolicy/" target="_blank">cloudflare.com/privacypolicy</a></li>
+  <li><strong>GitHub Pages</strong> — <a href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement" target="_blank">github.com privacy statement</a></li>
+</ul>
+
+<div class="divider"></div>
+
+<div class="contact-box">
+  <h2 style="margin-top:0">Contact Us</h2>
+  <p>For privacy requests, questions, or concerns:</p>
+  <p><strong>Ideatron LLC</strong></p>
+  <p>c/o IncorporateMax Inc.<br>
+  25700 Interstate 45 #4119<br>
+  The Woodlands, Texas 77386</p>
+  <p>Email: <a href="mailto:ideatronllc@gmail.com">ideatronllc@gmail.com</a></p>
+</div>
+
+<div class="footer">
+  <p>© 2026 Ideatron LLC. All rights reserved. Ideatron Ledger is a product of Ideatron LLC.</p>
+</div>
+
+</body>
+</html>
