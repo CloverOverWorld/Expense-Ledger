@@ -281,10 +281,15 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
   </div>
 </div>
 
+<!-- MAPPING MODAL -->
+<div class="moverlay" id="mapping-overlay" onclick="if(event.target===this)closeMappingModal()">
+  <div class="modal" id="mapping-content" style="max-height:92vh"></div>
+</div>
+
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://hqnqketmvdqyldrpgbbi.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_fAaUpXEWDQ4Eh3q2hy1S5g_LbPFSeIx';
+const SUPABASE_KEY = 'YOUR_PUBLISHABLE_KEY_HERE';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── CONSTANTS ─────────────────────────────────────────────────
@@ -686,7 +691,12 @@ function doPrint() {
   win.document.close(); win.print();
 }
 
-// ── IMPORT ────────────────────────────────────────────────────
+// ── IMPORT — AI ASSISTED MAPPING ─────────────────────────────
+const APP_FIELDS = ['date','amount','vendor','category','payment_method','paid_by','reimbursed','notes','skip'];
+let pendingImportLines = [];
+let pendingMapping = {};
+let savedMappings = JSON.parse(localStorage.getItem('ideatron_mappings') || '{}');
+
 async function doImport(event) {
   const file = event.target.files[0]; if (!file) return;
   if (!activeProject) { alert('Select a project first.'); return; }
@@ -694,41 +704,294 @@ async function doImport(event) {
   reader.onload = async ev => {
     const lines = ev.target.result.split('\n').map(l=>l.trim()).filter(l=>l);
     if (!lines.length) { alert('Empty file.'); return; }
-    const isH = lines[0].toLowerCase().includes('reimbursed');
-    const tab = isH ? 'house' : 'biz';
-    const existing = new Set(expenses.filter(e=>e.category_tab===tab).map(e=>`${e.date}|${(e.vendor||'').toLowerCase()}|${parseFloat(e.amount).toFixed(2)}`));
-    let added=0, skipped=0;
-    const toInsert = [];
-    for (let i=1;i<lines.length;i++) {
-      const row = parseRow(lines[i]);
-      if (!row||row.length<4) continue;
-      if (row[0].toLowerCase()==='total'||row[0]==='') continue;
-      const date=row[0].trim(), vendor=(row[1]||'').replace(/^"|"$/g,'').trim(), cat=(row[2]||'').trim(), amount=parseFloat(row[3]);
-      if (!date||isNaN(amount)||amount<=0) continue;
-      const key=`${date}|${vendor.toLowerCase()}|${amount.toFixed(2)}`;
-      if (existing.has(key)) { skipped++; continue; }
-      toInsert.push({
-        project_id: activeProject.id,
-        created_by: currentUser.id,
-        date, amount, vendor,
-        category: cat,
-        category_tab: tab,
-        reimbursed: isH?(row[5]||'').toLowerCase()==='yes':false,
-        paid_by: isH?(row[4]||'').trim():'',
-        payment_method: !isH?(row[4]||'').trim():'',
-        notes: !isH?(row[5]||'').replace(/^"|"$/g,'').trim():''
-      });
-      existing.add(key); added++;
+    pendingImportLines = lines;
+    const headers = parseRow(lines[0]).map(h => h.trim());
+    const sampleRows = lines.slice(1, 4).map(l => parseRow(l));
+    const mappingKey = headers.join('|');
+
+    // Check saved mapping profile
+    if (savedMappings[mappingKey]) {
+      showMappingModal(headers, sampleRows, savedMappings[mappingKey], true);
+    } else {
+      // Call Claude API to suggest mapping
+      showMappingModal(headers, sampleRows, null, false);
+      await aiSuggestMapping(headers, sampleRows, mappingKey);
     }
-    if (toInsert.length > 0) {
-      const { error } = await sb.from('expenses').insert(toInsert);
-      if (error) { alert('Import error: ' + error.message); return; }
-    }
-    await loadExpenses();
-    alert(`Import complete.\n✅ ${added} added\n⏭ ${skipped} duplicates skipped`);
   };
   reader.readAsText(file);
-  event.target.value='';
+  event.target.value = '';
+}
+
+async function aiSuggestMapping(headers, sampleRows, mappingKey) {
+  const prompt = `You are mapping CSV columns to expense tracker fields.
+
+App fields available: date, amount, vendor, category, payment_method, paid_by, reimbursed, notes, skip
+
+CSV headers: ${JSON.stringify(headers)}
+Sample data row 1: ${JSON.stringify(sampleRows[0] || [])}
+Sample data row 2: ${JSON.stringify(sampleRows[1] || [])}
+
+Also detect the date format from the sample data (e.g. MM/DD/YYYY, YYYY-MM-DD, MM/DD).
+
+Respond ONLY with a JSON object like this, no explanation, no markdown:
+{
+  "mapping": {"Header Name": "app_field", ...},
+  "date_format": "MM/DD/YYYY",
+  "tab": "house"
+}
+
+Rules:
+- Every header must map to exactly one app field or "skip"
+- "tab" should be "house" if data looks like house/property expenses, else "biz"
+- "date_format" must be one of: MM/DD/YYYY, MM/DD, YYYY-MM-DD, DD/MM/YYYY`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '{}';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    pendingMapping = result;
+    updateMappingModal(result);
+  } catch(e) {
+    console.error('AI mapping failed:', e);
+    updateMappingModal(null);
+  }
+}
+
+function showMappingModal(headers, sampleRows, savedMapping, isSaved) {
+  pendingMapping = savedMapping || {};
+  const overlay = document.getElementById('mapping-overlay');
+  const content = document.getElementById('mapping-content');
+
+  const sampleHtml = sampleRows[0] ? `
+    <div style="background:var(--sur2);border-radius:var(--rs);padding:10px;margin-bottom:16px;overflow-x:auto">
+      <div style="font-size:9px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px">Sample Data</div>
+      <div style="display:flex;gap:12px;font-size:11px;white-space:nowrap">
+        ${headers.map((h,i) => `<div><div style="color:var(--gld);margin-bottom:2px">${h}</div><div style="color:var(--mut)">${(sampleRows[0][i]||'').substring(0,12)}</div></div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const rowsHtml = headers.map(h => {
+    const currentVal = (savedMapping || {})[h] || '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)">
+      <div style="font-size:13px;font-weight:500">${h}</div>
+      <select id="map_${h.replace(/\W/g,'_')}" style="background:var(--sur2);border:1px solid var(--brd);border-radius:var(--rs);padding:8px;color:var(--txt);font-family:'DM Mono',monospace;font-size:12px;outline:none;-webkit-appearance:none">
+        ${APP_FIELDS.map(f => `<option value="${f}" ${currentVal===f?'selected':''}>${f === 'skip' ? '— skip —' : f}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+
+  const tabHtml = `<div style="margin-bottom:16px">
+    <div style="font-size:10px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Expense Type</div>
+    <div style="display:flex;gap:8px">
+      <div id="map-tab-house" class="cc ${(!pendingMapping.tab || pendingMapping.tab==='house')?'sh':''}" onclick="setMapTab('house')">🏠 House Sale</div>
+      <div id="map-tab-biz" class="cc ${pendingMapping.tab==='biz'?'sb':''}" onclick="setMapTab('biz')">💼 LLC Business</div>
+    </div>
+  </div>`;
+
+  const dateHtml = `<div style="margin-bottom:16px">
+    <div style="font-size:10px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Date Format in your file</div>
+    <select id="map-date-fmt" style="width:100%;background:var(--sur2);border:1px solid var(--brd);border-radius:var(--rs);padding:10px;color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;outline:none;-webkit-appearance:none">
+      <option value="MM/DD/YYYY" ${(pendingMapping.date_format||'')===('MM/DD/YYYY')?'selected':''}>MM/DD/YYYY (e.g. 04/17/2026)</option>
+      <option value="MM/DD" ${(pendingMapping.date_format||'')==='MM/DD'?'selected':''}>MM/DD — year from file name or today</option>
+      <option value="YYYY-MM-DD" ${(pendingMapping.date_format||'')==='YYYY-MM-DD'?'selected':''}>YYYY-MM-DD (ISO)</option>
+      <option value="DD/MM/YYYY" ${(pendingMapping.date_format||'')==='DD/MM/YYYY'?'selected':''}>DD/MM/YYYY (European)</option>
+    </select>
+  </div>`;
+
+  const statusHtml = isSaved
+    ? `<div style="font-size:11px;color:var(--grn);margin-bottom:12px">✓ Using saved mapping profile</div>`
+    : `<div id="ai-status" style="font-size:11px;color:var(--mut);margin-bottom:12px">🤖 AI is analyzing your columns...</div>`;
+
+  content.innerHTML = `
+    <div class="mhandle"></div>
+    <div class="mtitle p">Import Mapping</div>
+    ${statusHtml}
+    ${sampleHtml}
+    ${tabHtml}
+    ${dateHtml}
+    <div style="font-size:10px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Column Mapping</div>
+    ${rowsHtml}
+    <div style="margin-top:16px">
+      <label style="font-size:10px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:6px">Save as profile (optional)</label>
+      <input type="text" id="map-profile-name" placeholder="e.g. Google Sheets — House" style="width:100%;background:var(--sur2);border:1px solid var(--brd);border-radius:var(--rs);padding:10px;color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;outline:none">
+    </div>
+    <div class="macts" style="margin-top:16px">
+      <button class="mbtn-c" onclick="closeMappingModal()">Cancel</button>
+      <button class="mbtn-s g" onclick="runImportWithMapping()">Import →</button>
+    </div>`;
+
+  overlay.classList.add('open');
+}
+
+function updateMappingModal(result) {
+  const status = document.getElementById('ai-status');
+  if (!result) {
+    if (status) status.textContent = '⚠ AI mapping unavailable — please map manually.';
+    return;
+  }
+  if (status) status.innerHTML = '🤖 AI mapping suggested — review and confirm.';
+  pendingMapping = result;
+
+  // Update selects
+  Object.entries(result.mapping || {}).forEach(([header, field]) => {
+    const sel = document.getElementById('map_' + header.replace(/\W/g,'_'));
+    if (sel && APP_FIELDS.includes(field)) sel.value = field;
+  });
+
+  // Update date format
+  const dateSel = document.getElementById('map-date-fmt');
+  if (dateSel && result.date_format) dateSel.value = result.date_format;
+
+  // Update tab
+  if (result.tab) setMapTab(result.tab);
+}
+
+function setMapTab(tab) {
+  pendingMapping.tab = tab;
+  document.getElementById('map-tab-house').className = 'cc ' + (tab==='house'?'sh':'');
+  document.getElementById('map-tab-biz').className = 'cc ' + (tab==='biz'?'sb':'');
+}
+
+function closeMappingModal() {
+  document.getElementById('mapping-overlay').classList.remove('open');
+  pendingImportLines = [];
+}
+
+async function runImportWithMapping() {
+  const lines = pendingImportLines;
+  if (!lines.length) return;
+  const headers = parseRow(lines[0]).map(h => h.trim());
+
+  // Collect mapping from selects
+  const mapping = {};
+  headers.forEach(h => {
+    const sel = document.getElementById('map_' + h.replace(/\W/g,'_'));
+    if (sel) mapping[h] = sel.value;
+  });
+
+  const dateFormat = document.getElementById('map-date-fmt')?.value || 'MM/DD/YYYY';
+  const tab = pendingMapping.tab || 'house';
+
+  // Save profile if named
+  const profileName = document.getElementById('map-profile-name')?.value.trim();
+  const mappingKey = headers.join('|');
+  if (profileName) {
+    savedMappings[mappingKey] = { mapping, date_format: dateFormat, tab, name: profileName };
+    localStorage.setItem('ideatron_mappings', JSON.stringify(savedMappings));
+  }
+
+  // Find field index helpers
+  const fieldCol = (field) => {
+    const header = Object.keys(mapping).find(h => mapping[h] === field);
+    return header ? headers.indexOf(header) : -1;
+  };
+
+  const iDate = fieldCol('date');
+  const iAmt  = fieldCol('amount');
+  const iVend = fieldCol('vendor');
+  const iCat  = fieldCol('category');
+  const iPM   = fieldCol('payment_method');
+  const iPB   = fieldCol('paid_by');
+  const iReim = fieldCol('reimbursed');
+  const iNote = fieldCol('notes');
+
+  if (iDate < 0 || iAmt < 0) { alert('Date and Amount columns are required.'); return; }
+
+  function parseDate(raw) {
+    if (!raw) return null;
+    raw = raw.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    if (dateFormat === 'MM/DD/YYYY') {
+      const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+    }
+    if (dateFormat === 'DD/MM/YYYY') {
+      const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    }
+    if (dateFormat === 'MM/DD') {
+      const m = raw.match(/^(\d{1,2})\/(\d{1,2})$/);
+      if (m) return `${new Date().getFullYear()}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+      // Also try MM/DD/YYYY if year was present
+      const m2 = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m2) return `${m2[3]}-${m2[1].padStart(2,'0')}-${m2[2].padStart(2,'0')}`;
+    }
+    return null;
+  }
+
+  function parseAmt(raw) {
+    if (!raw) return NaN;
+    return parseFloat(raw.replace(/[^0-9.]/g,''));
+  }
+
+  function clean(raw) {
+    if (!raw) return '';
+    return raw.trim().replace(/\.\s*$/, '').trim();
+  }
+
+  const existing = new Set(
+    expenses.filter(e=>e.category_tab===tab)
+      .map(e=>`${e.date}|${(e.vendor||'').toLowerCase()}|${parseFloat(e.amount).toFixed(2)}`)
+  );
+
+  let added=0, skipped=0, failed=0;
+  const toInsert = [];
+
+  for (let i=1; i<lines.length; i++) {
+    const row = parseRow(lines[i]);
+    if (!row || row.length < 2) continue;
+    const rawDate = iDate >= 0 ? row[iDate] : '';
+    const rawAmt  = iAmt  >= 0 ? row[iAmt]  : '';
+    if (!rawDate && !rawAmt) continue;
+    if (clean(rawDate).toLowerCase() === 'total') continue;
+
+    const date   = parseDate(rawDate);
+    const amount = parseAmt(rawAmt);
+    const vendor = clean(iVend >= 0 ? row[iVend] : '');
+    const cat    = clean(iCat  >= 0 ? row[iCat]  : '');
+    const pm     = clean(iPM   >= 0 ? row[iPM]   : '');
+    const pb     = clean(iPB   >= 0 ? row[iPB]   : '');
+    const reimb  = iReim >= 0 ? clean(row[iReim]).toLowerCase().startsWith('y') : false;
+    const notes  = clean(iNote >= 0 ? row[iNote] : '');
+
+    if (!date || isNaN(amount) || amount <= 0) { failed++; continue; }
+
+    const key = `${date}|${vendor.toLowerCase()}|${amount.toFixed(2)}`;
+    if (existing.has(key)) { skipped++; continue; }
+
+    toInsert.push({
+      project_id: activeProject.id,
+      created_by: currentUser.id,
+      date, amount, vendor,
+      category: cat,
+      category_tab: tab,
+      reimbursed: reimb,
+      paid_by: pb,
+      payment_method: pm,
+      notes
+    });
+    existing.add(key);
+    added++;
+  }
+
+  if (toInsert.length > 0) {
+    const { error } = await sb.from('expenses').insert(toInsert);
+    if (error) { alert('Import error: ' + error.message); return; }
+  }
+
+  closeMappingModal();
+  await loadExpenses();
+  alert(`Import complete.\n✅ ${added} added\n⏭ ${skipped} duplicates skipped${failed>0?'\n⚠ '+failed+' rows skipped (bad data)':''}`);
 }
 
 function parseRow(line) {
