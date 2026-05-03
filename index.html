@@ -457,8 +457,131 @@ function renderProjectBar() {
     chip.className = 'proj-chip' + (activeProject?.id === p.id ? ' active' : '');
     chip.textContent = p.name;
     chip.onclick = () => selectProject(p);
+
+    // Long press for owner options
+    let pressTimer;
+    chip.addEventListener('touchstart', () => {
+      pressTimer = setTimeout(() => showProjectMenu(p, chip), 600);
+    }, { passive: true });
+    chip.addEventListener('touchend', () => clearTimeout(pressTimer));
+    chip.addEventListener('touchmove', () => clearTimeout(pressTimer));
+
+    // Right-click on desktop
+    chip.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showProjectMenu(p, chip);
+    });
+
     bar.appendChild(chip);
   });
+}
+
+// Project context menu
+let projMenuOpen = false;
+
+function showProjectMenu(p, chipEl) {
+  // Remove any existing menu
+  const existing = document.getElementById('proj-ctx-menu');
+  if (existing) existing.remove();
+
+  const isOwner = p.owner_id === currentUser.id;
+
+  const menu = document.createElement('div');
+  menu.id = 'proj-ctx-menu';
+  menu.style.cssText = `
+    position: fixed; z-index: 500;
+    background: var(--sur); border: 1px solid var(--brd);
+    border-radius: var(--r); overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    min-width: 180px; animation: fin .15s ease;
+  `;
+
+  const rect = chipEl.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 8) + 'px';
+  menu.style.left = Math.min(rect.left, window.innerWidth - 200) + 'px';
+
+  const items = [
+    { icon: '✏', label: 'Rename', fn: () => renameProject(p) },
+    { icon: '👥', label: 'Members', fn: () => { closeProjMenu(); openMembersModal(); } },
+  ];
+
+  if (isOwner) {
+    items.push({ icon: '🗑', label: 'Delete Project', fn: () => deleteProject(p), danger: true });
+  }
+
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.style.cssText = `
+      padding: 14px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px;
+      font-size: 13px; color: ${item.danger ? 'var(--red)' : 'var(--txt)'};
+      border-bottom: 1px solid var(--brd);
+    `;
+    row.innerHTML = `<span>${item.icon}</span><span>${item.label}</span>`;
+    row.onclick = () => { closeProjMenu(); item.fn(); };
+    row.addEventListener('touchstart', () => row.style.opacity = '0.7', { passive: true });
+    row.addEventListener('touchend', () => row.style.opacity = '1');
+    menu.appendChild(row);
+  });
+
+  // Cancel row
+  const cancel = document.createElement('div');
+  cancel.style.cssText = 'padding: 14px 16px; cursor: pointer; font-size: 13px; color: var(--mut); text-align: center;';
+  cancel.textContent = 'Cancel';
+  cancel.onclick = closeProjMenu;
+  menu.appendChild(cancel);
+
+  document.body.appendChild(menu);
+  projMenuOpen = true;
+
+  // Close on outside tap
+  setTimeout(() => {
+    document.addEventListener('touchstart', closeProjMenu, { once: true });
+    document.addEventListener('click', closeProjMenu, { once: true });
+  }, 100);
+}
+
+function closeProjMenu() {
+  const menu = document.getElementById('proj-ctx-menu');
+  if (menu) menu.remove();
+  projMenuOpen = false;
+}
+
+async function renameProject(p) {
+  if (!activeProject || activeProject.id !== p.id) await selectProject(p);
+  const newName = prompt('Rename project:', p.name);
+  if (!newName || newName.trim() === p.name) return;
+  const { error } = await sb.from('projects').update({ name: newName.trim() }).eq('id', p.id);
+  if (error) { alert('Error: ' + error.message); return; }
+  p.name = newName.trim();
+  if (activeProject?.id === p.id) activeProject.name = newName.trim();
+  renderProjectBar();
+}
+
+async function deleteProject(p) {
+  const confirmed = confirm(
+    `Delete "${p.name}" and ALL its expenses?\n\nThis permanently deletes:\n• All expenses\n• All members\n• All categories\n\nThis cannot be undone.`
+  );
+  if (!confirmed) return;
+
+  const { error } = await sb.from('projects').delete().eq('id', p.id);
+  if (error) { alert('Error deleting project: ' + error.message); return; }
+
+  // Remove from local state
+  projects = projects.filter(x => x.id !== p.id);
+
+  // If deleted project was active, reset to no-project state
+  if (activeProject?.id === p.id) {
+    activeProject = null;
+    if (realtimeChannel) sb.removeChannel(realtimeChannel);
+    document.getElementById('tabs').style.display = 'none';
+    document.getElementById('sumbar').style.display = 'none';
+    document.getElementById('abar').style.display = 'none';
+    document.getElementById('elist').style.display = 'none';
+    document.getElementById('fab').style.display = 'none';
+    document.getElementById('no-proj-state').style.display = 'block';
+  }
+
+  renderProjectBar();
 }
 
 async function selectProject(p) {
