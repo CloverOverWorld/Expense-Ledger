@@ -187,6 +187,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
     <button class="abtn" onclick="doExportCSV()">⬇ CSV</button>
     <button class="abtn" onclick="doPrint()">🖨 Print</button>
     <button class="abtn" style="color:var(--grn)" onclick="document.getElementById('csv-in').click()">⬆ Import</button>
+    <button class="abtn" style="color:var(--blu)" onclick="openMembersModal()">👥 Members</button>
     <button class="abtn" style="color:var(--red)" onclick="doClear()">🗑 Clear</button>
   </div>
   <input type="file" id="csv-in" accept=".csv" style="display:none" onchange="doImport(event)">
@@ -203,6 +204,49 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
 
   <!-- FAB -->
   <button class="fab fab-h" id="fab" onclick="openExpenseModal()" style="display:none">+ Add Expense</button>
+</div>
+
+<!-- MEMBERS MODAL -->
+<div class="moverlay" id="members-modal" onclick="if(event.target===this)closeMembersModal()">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle b" id="members-title">Project Members</div>
+
+    <!-- Current members -->
+    <div style="font-size:10px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Current Members</div>
+    <div id="members-list" style="margin-bottom:24px"></div>
+
+    <!-- Pending invites -->
+    <div id="pending-section" style="display:none">
+      <div style="font-size:10px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Pending Invites</div>
+      <div id="pending-list" style="margin-bottom:24px"></div>
+    </div>
+
+    <!-- Invite form (owner only) -->
+    <div id="invite-form">
+      <div style="font-size:10px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Invite Someone</div>
+      <div class="fld">
+        <label>Email Address</label>
+        <input type="email" inputmode="email" id="invite-email" placeholder="colleague@example.com">
+      </div>
+      <div class="fld">
+        <label>Role</label>
+        <div class="cgrp" id="invite-role-chips">
+          <div class="cc sb" id="role-editor" onclick="selectInviteRole('editor')">✏ Editor</div>
+          <div class="cc" id="role-viewer" onclick="selectInviteRole('viewer')">👁 Viewer</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--mut);line-height:1.6;margin-bottom:16px" id="role-desc">
+        Editor: can add and delete their own expenses only.
+      </div>
+      <div class="lock-err" id="invite-err"></div>
+      <button class="mbtn-s b" style="width:100%;padding:14px" onclick="sendInvite()">Send Invite →</button>
+    </div>
+
+    <div style="margin-top:16px">
+      <button class="mbtn-c" style="width:100%" onclick="closeMembersModal()">Close</button>
+    </div>
+  </div>
 </div>
 
 <!-- NEW PROJECT MODAL -->
@@ -374,6 +418,11 @@ async function showApp() {
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('user-email-display').textContent = currentUser.email;
   await ensureUserProfile();
+  // Check for pending invites on every login
+  await sb.rpc('check_invites_on_login', {
+    user_email: currentUser.email,
+    user_id: currentUser.id
+  });
   await loadProjects();
 }
 
@@ -689,6 +738,185 @@ function doPrint() {
   if (reimb !== null) win.document.write(`<div class="tr-row" style="color:#2a7a2a"><span>Reimbursed</span><span>${fmt(reimb)}</span></div><div class="tr-row" style="color:#b22"><span>Balance Owed</span><span>${fmt(total-reimb)}</span></div>`);
   win.document.write('</div></body></html>');
   win.document.close(); win.print();
+}
+
+// ── MEMBERS & INVITES ─────────────────────────────────────────
+let selectedInviteRole = 'editor';
+
+async function openMembersModal() {
+  if (!activeProject) return;
+  document.getElementById('members-title').textContent = activeProject.name + ' — Members';
+  document.getElementById('invite-err').textContent = '';
+  document.getElementById('invite-email').value = '';
+  selectedInviteRole = 'editor';
+  renderInviteRoleChips();
+
+  // Show invite form only to owner
+  const isOwner = activeProject.owner_id === currentUser.id;
+  document.getElementById('invite-form').style.display = isOwner ? '' : 'none';
+
+  await loadMembers();
+  document.getElementById('members-modal').classList.add('open');
+}
+
+function closeMembersModal() {
+  document.getElementById('members-modal').classList.remove('open');
+}
+
+async function loadMembers() {
+  // Load current members
+  const { data: members } = await sb
+    .from('project_members')
+    .select('role, user_id, users(email, display_name)')
+    .eq('project_id', activeProject.id);
+
+  const membersList = document.getElementById('members-list');
+  if (!members || !members.length) {
+    membersList.innerHTML = '<div style="font-size:12px;color:var(--mut)">No members yet.</div>';
+  } else {
+    const isOwner = activeProject.owner_id === currentUser.id;
+    membersList.innerHTML = members.map(m => {
+      const isYou = m.user_id === currentUser.id;
+      const isMemberOwner = activeProject.owner_id === m.user_id;
+      const name = m.users?.display_name || m.users?.email || 'Unknown';
+      const roleLabel = isMemberOwner ? 'Owner' : m.role;
+      const roleColor = isMemberOwner ? 'var(--gld)' : m.role === 'editor' ? 'var(--blu)' : 'var(--mut)';
+      const removeBtn = isOwner && !isYou
+        ? `<span onclick="removeMember('${m.user_id}')" style="font-size:10px;color:var(--red);cursor:pointer;text-decoration:underline;text-transform:uppercase;letter-spacing:.08em">Remove</span>`
+        : '';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)">
+        <div>
+          <div style="font-size:13px;font-weight:500">${name}${isYou?' <span style="font-size:10px;color:var(--mut)">(you)</span>':''}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:2px">${m.users?.email||''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:11px;color:${roleColor};text-transform:uppercase;letter-spacing:.08em">${roleLabel}</span>
+          ${removeBtn}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Load pending invites (owner only)
+  const isOwner = activeProject.owner_id === currentUser.id;
+  if (isOwner) {
+    const { data: pending } = await sb
+      .from('pending_invites')
+      .select('*')
+      .eq('project_id', activeProject.id)
+      .gt('expires_at', new Date().toISOString());
+
+    const pendingSection = document.getElementById('pending-section');
+    const pendingList = document.getElementById('pending-list');
+
+    if (pending && pending.length) {
+      pendingSection.style.display = '';
+      pendingList.innerHTML = pending.map(p => {
+        const exp = new Date(p.expires_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)">
+          <div>
+            <div style="font-size:13px">${p.email}</div>
+            <div style="font-size:11px;color:var(--mut);margin-top:2px">Expires ${exp}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em">${p.role} · pending</span>
+            <span onclick="cancelInvite('${p.id}')" style="font-size:10px;color:var(--red);cursor:pointer;text-decoration:underline;text-transform:uppercase;letter-spacing:.08em">Cancel</span>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      pendingSection.style.display = 'none';
+    }
+  }
+}
+
+function selectInviteRole(role) {
+  selectedInviteRole = role;
+  renderInviteRoleChips();
+  const desc = document.getElementById('role-desc');
+  desc.textContent = role === 'editor'
+    ? 'Editor: can add and delete their own expenses only.'
+    : 'Viewer: can see all expenses but cannot add or delete.';
+}
+
+function renderInviteRoleChips() {
+  document.getElementById('role-editor').className = 'cc ' + (selectedInviteRole === 'editor' ? 'sb' : '');
+  document.getElementById('role-viewer').className = 'cc ' + (selectedInviteRole === 'viewer' ? 'sb' : '');
+}
+
+async function sendInvite() {
+  const email = document.getElementById('invite-email').value.trim().toLowerCase();
+  const err = document.getElementById('invite-err');
+  err.textContent = '';
+
+  if (!email || !email.includes('@')) { err.textContent = 'Enter a valid email.'; return; }
+  if (!activeProject) { err.textContent = 'No project selected.'; return; }
+
+  // Check if already a member
+  const { data: existing } = await sb
+    .from('project_members')
+    .select('id')
+    .eq('project_id', activeProject.id)
+    .eq('user_id', (await sb.from('users').select('id').eq('email', email).single())?.data?.id || '');
+
+  // Get inviter display name
+  const { data: inviterData } = await sb.from('users').select('display_name, email').eq('id', currentUser.id).single();
+  const inviterName = inviterData?.display_name || inviterData?.email || 'Someone';
+
+  // Check if user already exists in system
+  const { data: existingUser } = await sb.from('users').select('id').eq('email', email).single();
+
+  if (existingUser) {
+    // User exists — add directly to project_members
+    const { error } = await sb.from('project_members').insert({
+      project_id: activeProject.id,
+      user_id: existingUser.id,
+      role: selectedInviteRole
+    });
+    if (error) {
+      if (error.code === '23505') { err.textContent = 'This person is already a member.'; return; }
+      err.textContent = 'Error: ' + error.message; return;
+    }
+    // Send magic link so they get notified
+    await sb.auth.admin?.inviteUserByEmail?.(email);
+  } else {
+    // User doesn't exist yet — create pending invite
+    const { error } = await sb.from('pending_invites').upsert({
+      project_id: activeProject.id,
+      email,
+      role: selectedInviteRole,
+      invited_by: currentUser.id,
+      invited_by_name: inviterName,
+      project_name: activeProject.name,
+      expires_at: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+    }, { onConflict: 'project_id,email' });
+    if (error) { err.textContent = 'Error: ' + error.message; return; }
+
+    // Send magic link email via Supabase
+    await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: 'https://ideatron-llc.com' }
+    });
+  }
+
+  document.getElementById('invite-email').value = '';
+  err.style.color = 'var(--grn)';
+  err.textContent = `✓ Invite sent to ${email}`;
+  await loadMembers();
+}
+
+async function removeMember(userId) {
+  if (!confirm('Remove this member from the project?')) return;
+  await sb.from('project_members').delete()
+    .eq('project_id', activeProject.id)
+    .eq('user_id', userId);
+  await loadMembers();
+}
+
+async function cancelInvite(inviteId) {
+  if (!confirm('Cancel this pending invite?')) return;
+  await sb.from('pending_invites').delete().eq('id', inviteId);
+  await loadMembers();
 }
 
 // ── IMPORT — AI ASSISTED MAPPING ─────────────────────────────
