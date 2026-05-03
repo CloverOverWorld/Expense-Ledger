@@ -1000,6 +1000,23 @@ function showMappingModal(headers, sampleRows, savedMapping, isSaved) {
   const overlay = document.getElementById('mapping-overlay');
   const content = document.getElementById('mapping-content');
 
+  // Auto-detect mapping from header names
+  const autoMap = {
+    'date': 'date', 'amount': 'amount', 'vendor': 'vendor',
+    'vendor name': 'vendor', 'vendor/description': 'vendor', 'merchant': 'vendor', 'description': 'vendor',
+    'category': 'category', 'cat': 'category',
+    'payment method': 'payment_method', 'payment type': 'payment_method', 'payment': 'payment_method',
+    'paid by': 'paid_by', 'paidby': 'paid_by', 'who paid': 'paid_by',
+    'reimbursed': 'reimbursed', 'reimb': 'reimbursed',
+    'notes': 'notes', 'note': 'notes', 'memo': 'notes', 'description': 'notes',
+    'added by': 'skip', 'created by': 'skip', 'id': 'skip'
+  };
+
+  const getDefault = (header) => {
+    if (savedMapping && savedMapping.mapping && savedMapping.mapping[header]) return savedMapping.mapping[header];
+    return autoMap[header.toLowerCase().trim()] || 'skip';
+  };
+
   const sampleHtml = sampleRows[0] ? `
     <div style="background:var(--sur2);border-radius:var(--rs);padding:10px;margin-bottom:16px;overflow-x:auto">
       <div style="font-size:9px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px">Sample Data</div>
@@ -1009,11 +1026,19 @@ function showMappingModal(headers, sampleRows, savedMapping, isSaved) {
     </div>` : '';
 
   const rowsHtml = headers.map(h => {
-    const currentVal = (savedMapping || {})[h] || '';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)">
-      <div style="font-size:13px;font-weight:500">${h}</div>
-      <select id="map_${h.replace(/\W/g,'_')}" style="background:var(--sur2);border:1px solid var(--brd);border-radius:var(--rs);padding:8px;color:var(--txt);font-family:'DM Mono',monospace;font-size:12px;outline:none;-webkit-appearance:none">
-        ${APP_FIELDS.map(f => `<option value="${f}" ${currentVal===f?'selected':''}>${f === 'skip' ? '— skip —' : f}</option>`).join('')}
+    const currentVal = getDefault(h);
+    const fieldLabels = {
+      'date':'Date','amount':'Amount','vendor':'Vendor','category':'Category',
+      'payment_method':'Payment Method','paid_by':'Paid By','reimbursed':'Reimbursed',
+      'notes':'Notes','skip':'— skip —'
+    };
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--brd);gap:12px">
+      <div style="font-size:13px;font-weight:500;flex:1">${h}</div>
+      <select id="map_${h.replace(/\W/g,'_')}"
+        style="background:var(--sur2);border:1px solid var(--brd);border-radius:var(--rs);
+               padding:8px 10px;color:var(--txt);font-family:'DM Mono',monospace;font-size:12px;
+               outline:none;max-width:160px;width:160px;cursor:pointer">
+        ${APP_FIELDS.map(f => `<option value="${f}" ${currentVal===f?'selected':''}>${fieldLabels[f]||f}</option>`).join('')}
       </select>
     </div>`;
   }).join('');
@@ -1028,9 +1053,9 @@ function showMappingModal(headers, sampleRows, savedMapping, isSaved) {
 
   const dateHtml = `<div style="margin-bottom:16px">
     <div style="font-size:10px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Date Format in your file</div>
-    <select id="map-date-fmt" style="width:100%;background:var(--sur2);border:1px solid var(--brd);border-radius:var(--rs);padding:10px;color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;outline:none;-webkit-appearance:none">
-      <option value="MM/DD/YYYY" ${(pendingMapping.date_format||'')===('MM/DD/YYYY')?'selected':''}>MM/DD/YYYY (e.g. 04/17/2026)</option>
-      <option value="MM/DD" ${(pendingMapping.date_format||'')==='MM/DD'?'selected':''}>MM/DD — year from file name or today</option>
+    <select id="map-date-fmt" style="width:100%;background:var(--sur2);border:1px solid var(--brd);border-radius:var(--rs);padding:10px;color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;outline:none;cursor:pointer">
+      <option value="MM/DD/YYYY" ${(pendingMapping.date_format||'MM/DD/YYYY')==='MM/DD/YYYY'?'selected':''}>MM/DD/YYYY (e.g. 04/17/2026)</option>
+      <option value="MM/DD" ${(pendingMapping.date_format||'')==='MM/DD'?'selected':''}>MM/DD only (no year)</option>
       <option value="YYYY-MM-DD" ${(pendingMapping.date_format||'')==='YYYY-MM-DD'?'selected':''}>YYYY-MM-DD (ISO)</option>
       <option value="DD/MM/YYYY" ${(pendingMapping.date_format||'')==='DD/MM/YYYY'?'selected':''}>DD/MM/YYYY (European)</option>
     </select>
@@ -1038,7 +1063,7 @@ function showMappingModal(headers, sampleRows, savedMapping, isSaved) {
 
   const statusHtml = isSaved
     ? `<div style="font-size:11px;color:var(--grn);margin-bottom:12px">✓ Using saved mapping profile</div>`
-    : `<div id="ai-status" style="font-size:11px;color:var(--mut);margin-bottom:12px">🤖 AI is analyzing your columns...</div>`;
+    : `<div id="ai-status" style="font-size:11px;color:var(--mut);margin-bottom:12px">⚡ Columns auto-detected — review and confirm.</div>`;
 
   content.innerHTML = `
     <div class="mhandle"></div>
