@@ -135,26 +135,32 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
   <div class="auth-title">Ideatron Ledger</div>
   <div class="auth-sub" id="auth-sub">Secure Access</div>
 
-  <!-- Email input step -->
+  <!-- Step 1: Email input -->
   <div id="step-email" style="width:100%;display:flex;flex-direction:column;align-items:center">
     <div class="auth-box">
       <span class="auth-lbl">Enter your email to sign in</span>
-      <input type="email" inputmode="email" class="auth-input" id="email-input" placeholder="you@example.com" onkeydown="if(event.key==='Enter')sendMagicLink()">
+      <input type="email" inputmode="email" class="auth-input" id="email-input"
+        placeholder="you@example.com"
+        onkeydown="if(event.key==='Enter')sendOTP()">
       <div class="auth-err" id="email-err"></div>
-      <button class="auth-btn" id="send-btn" onclick="sendMagicLink()">Send Magic Link →</button>
-      <div class="auth-info">A one-tap sign-in link will be sent<br>to your email. No password needed.</div>
+      <button class="auth-btn" id="send-btn" onclick="sendOTP()">Send Code →</button>
+      <div class="auth-info">A 6-digit code will be sent to your email.<br>No password needed.</div>
     </div>
   </div>
 
-  <!-- Success step -->
-  <div id="step-sent" style="display:none;width:100%;display:none;flex-direction:column;align-items:center">
-    <div class="auth-success">
-      <div class="auth-success-icon">📬</div>
-      <div class="auth-success-title">Check your email</div>
-      <div class="auth-success-text">A sign-in link has been sent.<br>Tap it to access Ideatron Ledger.<br><br>You can close this tab.</div>
-    </div>
-    <div style="margin-top:20px">
-      <span class="auth-info" style="cursor:pointer;text-decoration:underline" onclick="showEmailStep()">← Use a different email</span>
+  <!-- Step 2: OTP code input -->
+  <div id="step-otp" style="display:none;width:100%;flex-direction:column;align-items:center">
+    <div class="auth-box">
+      <span class="auth-lbl">Enter the 6-digit code from your email</span>
+      <input type="text" inputmode="numeric" maxlength="6" class="auth-input" id="otp-input"
+        placeholder="000000" style="font-size:32px;letter-spacing:0.3em"
+        onkeydown="if(event.key==='Enter')verifyOTP()">
+      <div class="auth-err" id="otp-err"></div>
+      <button class="auth-btn" id="verify-btn" onclick="verifyOTP()">Sign In →</button>
+      <div class="auth-info" style="margin-bottom:16px">Check your inbox — the code expires in 10 minutes.</div>
+      <div style="text-align:center">
+        <span class="auth-info" style="cursor:pointer;text-decoration:underline" onclick="showEmailStep()">← Use a different email</span>
+      </div>
     </div>
   </div>
 </div>
@@ -334,7 +340,32 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;min-h
 // ── CONFIG ────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://hqnqketmvdqyldrpgbbi.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_fAaUpXEWDQ4Eh3q2hy1S5g_LbPFSeIx';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Cookie storage — shared between Safari and PWA on iOS
+const cookieStorage = {
+  getItem: (key) => {
+    const match = document.cookie.match(new RegExp('(^| )' + encodeURIComponent(key) + '=([^;]+)'));
+    if (match) try { return decodeURIComponent(match[2]); } catch { return null; }
+    return null;
+  },
+  setItem: (key, value) => {
+    document.cookie = encodeURIComponent(key) + '=' + encodeURIComponent(value) +
+      '; path=/; max-age=2592000; SameSite=Lax; Secure';
+  },
+  removeItem: (key) => {
+    document.cookie = encodeURIComponent(key) + '=; path=/; max-age=0';
+  }
+};
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    storage: cookieStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'implicit'
+  }
+});
 
 // ── CONSTANTS ─────────────────────────────────────────────────
 const HOUSE_CATS = ['Staging','Repairs','Cleaning','Landscaping','Painting','Inspection','Agent Fees','Closing Costs','Misc'];
@@ -374,8 +405,10 @@ let selCat = '', selPayment = '', selPaidBy = 'Me', reimbursed = false;
 })();
 
 // ── AUTH ──────────────────────────────────────────────────────
-async function sendMagicLink() {
-  const email = document.getElementById('email-input').value.trim();
+let otpEmail = '';
+
+async function sendOTP() {
+  const email = document.getElementById('email-input').value.trim().toLowerCase();
   const err = document.getElementById('email-err');
   const btn = document.getElementById('send-btn');
   if (!email || !email.includes('@')) { err.textContent = 'Please enter a valid email.'; return; }
@@ -384,23 +417,51 @@ async function sendMagicLink() {
   btn.textContent = 'Sending...';
   const { error } = await sb.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: 'https://ideatron-llc.com' }
+    options: { shouldCreateUser: true }
   });
   if (error) {
     err.textContent = error.message;
     btn.disabled = false;
-    btn.textContent = 'Send Magic Link →';
+    btn.textContent = 'Send Code →';
   } else {
+    otpEmail = email;
     document.getElementById('step-email').style.display = 'none';
-    document.getElementById('step-sent').style.display = 'flex';
+    document.getElementById('step-otp').style.display = 'flex';
+    setTimeout(() => document.getElementById('otp-input').focus(), 300);
+  }
+}
+
+async function verifyOTP() {
+  const token = document.getElementById('otp-input').value.trim();
+  const err = document.getElementById('otp-err');
+  const btn = document.getElementById('verify-btn');
+  if (!token || token.length !== 6) { err.textContent = 'Enter the 6-digit code from your email.'; return; }
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Verifying...';
+  const { data, error } = await sb.auth.verifyOtp({
+    email: otpEmail,
+    token,
+    type: 'email'
+  });
+  if (error) {
+    err.textContent = 'Invalid or expired code. Try again.';
+    btn.disabled = false;
+    btn.textContent = 'Sign In →';
+    document.getElementById('otp-input').value = '';
+  } else {
+    currentUser = data.user;
+    showApp();
   }
 }
 
 function showEmailStep() {
-  document.getElementById('step-sent').style.display = 'none';
+  document.getElementById('step-otp').style.display = 'none';
   document.getElementById('step-email').style.display = 'flex';
   document.getElementById('send-btn').disabled = false;
-  document.getElementById('send-btn').textContent = 'Send Magic Link →';
+  document.getElementById('send-btn').textContent = 'Send Code →';
+  document.getElementById('email-err').textContent = '';
+  document.getElementById('otp-input').value = '';
 }
 
 async function signOut() {
